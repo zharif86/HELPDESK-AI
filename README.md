@@ -1,36 +1,39 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# AI IT Helpdesk
 
-## Getting Started
+Phase 1 is the administration foundation for an internal IT helpdesk: accounts, departments, locations, roles, audit, and organisation settings. Sign-in uses database sessions. Tickets, knowledge, assets, and the assistant are not built yet.
 
-First, run the development server:
+## Run locally
+
+PostgreSQL is started for you by the development script. It listens on `127.0.0.1:5433` and is not published to the network.
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open http://localhost:3000. Copy `.env.example` to `.env` before the first run and set `ADMIN_EMAIL`, `ADMIN_NAME`, and `ADMIN_PASSWORD`. The seed refuses short or well-known placeholder passwords.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Checks
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm run lint
+npm run typecheck
+npx prisma validate
+npm test
+```
 
-## Learn More
+Tests use a separate database named `helpdesk_test`. They do not truncate the development database.
 
-To learn more about Next.js, take a look at the following resources:
+## Documents
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- [ARCHITECTURE.md](ARCHITECTURE.md)
+- [DATABASE_DESIGN.md](DATABASE_DESIGN.md)
+- [DEVELOPMENT_ROADMAP.md](DEVELOPMENT_ROADMAP.md)
+- [SECURITY.md](SECURITY.md)
+- [API_DOCUMENTATION.md](API_DOCUMENTATION.md)
+- [ADMIN_GUIDE.md](ADMIN_GUIDE.md)
+- [USER_GUIDE.md](USER_GUIDE.md)
+- [TESTING_GUIDE.md](TESTING_GUIDE.md)
+- [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md)
+- [CHANGELOG.md](CHANGELOG.md)
+- [PHASE1_COMPLETION_REPORT.md](PHASE1_COMPLETION_REPORT.md)

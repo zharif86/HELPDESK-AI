@@ -1,11 +1,13 @@
 import "server-only";
 
+import { hasPermission } from "@/server/access/catalog";
 import { assertPermission } from "@/server/access/guards";
 import type { Actor } from "@/server/access/types";
 import { writeAudit } from "@/server/audit";
 import { prisma } from "@/server/db";
 import { AppError, isUniqueViolation } from "@/server/errors";
 import { parentCreatesCycle } from "@/server/org/cycles";
+import { visibleDepartmentIds } from "@/server/access/scope";
 import { departmentSchema, type DepartmentInput } from "@/server/validators/departments";
 
 const PAGE_SIZE = 20;
@@ -49,8 +51,10 @@ export async function listDepartments(actor: Actor, query: { q?: string; page?: 
   assertPermission(actor, "departments.read");
   const page = query.page && query.page > 0 ? query.page : 1;
   const q = query.q?.trim();
+  const visible = await visibleDepartmentIds(actor);
   const where = {
     deletedAt: null,
+    ...(visible ? { id: { in: visible } } : {}),
     ...(query.includeInactive ? {} : { isActive: true }),
     ...(q
       ? {
@@ -80,6 +84,8 @@ export async function listDepartments(actor: Actor, query: { q?: string; page?: 
 
 export async function getDepartment(actor: Actor, id: string) {
   assertPermission(actor, "departments.read");
+  const visible = await visibleDepartmentIds(actor);
+  if (visible && !visible.includes(id)) return null;
   return prisma.department.findFirst({
     where: { id, deletedAt: null },
     include: {
@@ -143,15 +149,20 @@ export async function updateDepartment(actor: Actor, id: string, input: Departme
   }
 }
 
-export async function listDepartmentOptions() {
+export async function listDepartmentOptions(actor: Actor) {
+  if (!hasPermission(actor.permissions, "departments.read") && !hasPermission(actor.permissions, "users.read")) {
+    assertPermission(actor, "departments.read");
+  }
+  const visible = await visibleDepartmentIds(actor);
   return prisma.department.findMany({
-    where: { deletedAt: null, isActive: true },
+    where: { deletedAt: null, isActive: true, ...(visible ? { id: { in: visible } } : {}) },
     orderBy: { name: "asc" },
     select: { id: true, code: true, name: true },
   });
 }
 
-export async function listActiveUsersForHead() {
+export async function listActiveUsersForHead(actor: Actor) {
+  assertPermission(actor, "departments.manage");
   return prisma.user.findMany({
     where: { deletedAt: null, status: "ACTIVE" },
     orderBy: { name: "asc" },

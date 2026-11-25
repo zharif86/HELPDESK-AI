@@ -43,11 +43,14 @@ export async function syncAccessCatalog() {
       });
       continue;
     }
-    if (key !== "SYSTEM_ADMIN") continue;
+    await prisma.role.update({
+      where: { id: existing.id },
+      data: { name: template.name, description: template.description, isSystem: true },
+    });
     const held = new Set(existing.permissions.map((grant) => grant.permissionId));
     const missing = template.permissions
       .map((permissionKey) => idByKey.get(permissionKey))
-      .filter((id): id is string => Boolean(id) && !held.has(id));
+      .filter((id): id is string => typeof id === "string" && !held.has(id));
     if (missing.length > 0) {
       await prisma.rolePermission.createMany({
         data: missing.map((permissionId) => ({ roleId: existing.id, permissionId })),

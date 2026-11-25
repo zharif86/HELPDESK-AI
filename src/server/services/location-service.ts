@@ -1,10 +1,12 @@
 import "server-only";
 
+import { hasPermission } from "@/server/access/catalog";
 import { assertPermission } from "@/server/access/guards";
 import type { Actor } from "@/server/access/types";
 import { writeAudit } from "@/server/audit";
 import { prisma } from "@/server/db";
 import { AppError, isUniqueViolation } from "@/server/errors";
+import { visibleDepartmentIds } from "@/server/access/scope";
 import { locationSchema, type LocationInput } from "@/server/validators/locations";
 
 const PAGE_SIZE = 20;
@@ -22,8 +24,10 @@ export async function listLocations(actor: Actor, query: { q?: string; page?: nu
   assertPermission(actor, "locations.read");
   const page = query.page && query.page > 0 ? query.page : 1;
   const q = query.q?.trim();
+  const visible = await visibleDepartmentIds(actor);
   const where = {
     deletedAt: null,
+    ...(visible ? { departmentId: { in: visible } } : {}),
     ...(q
       ? {
           OR: [
@@ -49,7 +53,14 @@ export async function listLocations(actor: Actor, query: { q?: string; page?: nu
 
 export async function getLocation(actor: Actor, id: string) {
   assertPermission(actor, "locations.read");
-  return prisma.location.findFirst({ where: { id, deletedAt: null } });
+  const location = await prisma.location.findFirst({
+    where: { id, deletedAt: null },
+    include: { department: { select: { id: true, code: true, name: true } } },
+  });
+  if (!location) return null;
+  const visible = await visibleDepartmentIds(actor);
+  if (visible && (!location.departmentId || !visible.includes(location.departmentId))) return null;
+  return location;
 }
 
 export async function createLocation(actor: Actor, input: LocationInput) {
@@ -102,9 +113,13 @@ export async function updateLocation(actor: Actor, id: string, input: LocationIn
   }
 }
 
-export async function listLocationOptions() {
+export async function listLocationOptions(actor: Actor) {
+  if (!hasPermission(actor.permissions, "locations.read") && !hasPermission(actor.permissions, "users.read")) {
+    assertPermission(actor, "locations.read");
+  }
+  const visible = await visibleDepartmentIds(actor);
   return prisma.location.findMany({
-    where: { deletedAt: null, isActive: true },
+    where: { deletedAt: null, isActive: true, ...(visible ? { departmentId: { in: visible } } : {}) },
     orderBy: { name: "asc" },
     select: { id: true, code: true, name: true },
   });

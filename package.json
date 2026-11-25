@@ -9,7 +9,7 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run",
+    "test": "node scripts/prepare-test-db.mjs && vitest run",
     "db:up": "node scripts/postgres-local.mjs",
     "db:migrate": "prisma migrate deploy",
     "db:seed": "prisma db seed",

@@ -3,9 +3,11 @@ import "server-only";
 import { hashPassword } from "@/server/auth/password";
 import { assertPermission } from "@/server/access/guards";
 import type { Actor } from "@/server/access/types";
+import { hasPermission } from "@/server/access/catalog";
 import { writeAudit } from "@/server/audit";
 import { prisma } from "@/server/db";
 import { AppError, isUniqueViolation } from "@/server/errors";
+import type { Prisma } from "@/generated/prisma/client";
 import { createUserSchema, temporaryPasswordSchema, updateUserSchema } from "@/server/validators/users";
 import type { CreateUserInput, UpdateUserInput } from "@/server/validators/users";
 
@@ -67,17 +69,35 @@ async function userIsSystemAdmin(userId: string) {
   return Boolean(match);
 }
 
+async function assertRoleGrant(actor: Actor, roleIds: string[]) {
+  const roles = await prisma.role.findMany({
+    where: { id: { in: roleIds } },
+    include: { permissions: { include: { permission: { select: { key: true } } } } },
+  });
+  if (roles.some((role) => role.key === "SYSTEM_ADMIN") && !actor.roleKeys.includes("SYSTEM_ADMIN")) {
+    throw new AppError("Only a system administrator can assign the system administrator role.");
+  }
+  const granted = new Set(roles.flatMap((role) => role.permissions.map((grant) => grant.permission.key)));
+  for (const key of granted) {
+    if (!hasPermission(actor.permissions, key)) {
+      throw new AppError("You cannot assign a role with permissions you do not hold.");
+    }
+  }
+}
+
 export async function listUsers(
   actor: Actor,
-  query: { q?: string; status?: string; page?: number },
+  query: { q?: string; status?: string; departmentId?: string; roleId?: string; page?: number },
 ) {
   assertPermission(actor, "users.read");
   const page = query.page && query.page > 0 ? query.page : 1;
   const q = query.q?.trim();
-  const status = query.status === "ACTIVE" || query.status === "INACTIVE" ? query.status : undefined;
-  const where = {
+  const status = query.status === "ACTIVE" ? "ACTIVE" : query.status === "INACTIVE" ? "INACTIVE" : undefined;
+  const where: Prisma.UserWhereInput = {
     deletedAt: null,
-    ...(status ? { status } : {}),
+    status,
+    departmentId: query.departmentId || undefined,
+    roles: query.roleId ? { some: { roleId: query.roleId } } : undefined,
     ...(q
       ? {
           OR: [
@@ -115,6 +135,7 @@ export async function createUser(actor: Actor, input: CreateUserInput) {
   assertPermission(actor, "users.create");
   const data = createUserSchema.parse(input);
   await assertRelations(data);
+  await assertRoleGrant(actor, data.roleIds);
   const passwordHash = await hashPassword(data.password);
   try {
     const user = await prisma.$transaction(async (tx) => {
@@ -170,6 +191,7 @@ export async function updateUser(actor: Actor, userId: string, input: UpdateUser
     if (!sameRoles) throw new AppError("Ask another system administrator to change your roles.");
   }
   await assertRelations(data);
+  await assertRoleGrant(actor, data.roleIds);
   const existing = await prisma.user.findFirst({ where: { id: userId, deletedAt: null } });
   if (!existing) throw new AppError("That account could not be found.");
 
@@ -294,7 +316,10 @@ export async function setTemporaryPassword(actor: Actor, userId: string, passwor
   });
 }
 
-export async function listRoleOptions() {
+export async function listRoleOptions(actor: Actor) {
+  if (!hasPermission(actor.permissions, "users.read") && !hasPermission(actor.permissions, "roles.read")) {
+    assertPermission(actor, "roles.read");
+  }
   return prisma.role.findMany({
     orderBy: { name: "asc" },
     select: { id: true, key: true, name: true, description: true },

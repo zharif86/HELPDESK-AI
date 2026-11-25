@@ -54,10 +54,6 @@ export async function loginWithPassword(
     return { ok: false as const, message: LOCKED_MESSAGE };
   }
 
-  if (user.status !== "ACTIVE") {
-    return { ok: false as const, message: DISABLED_MESSAGE };
-  }
-
   if (!passwordOk) {
     const security = await getSecuritySettings();
     const attempts = user.failedLoginAttempts + 1;
@@ -81,6 +77,10 @@ export async function loginWithPassword(
       });
     });
     return { ok: false as const, message: locked ? LOCKED_MESSAGE : INVALID_MESSAGE };
+  }
+
+  if (user.status !== "ACTIVE") {
+    return { ok: false as const, message: DISABLED_MESSAGE };
   }
 
   const security = await getSecuritySettings();

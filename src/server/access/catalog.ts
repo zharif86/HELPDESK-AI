@@ -95,8 +95,8 @@ export const ROLE_TEMPLATES = {
   DEPARTMENT_HEAD: {
     name: "Department Head",
     description:
-      "Views their own account and department. Department reporting arrives in a later phase.",
-    permissions: ["dashboard.view"],
+      "Views their own department and its child departments. Organisation-wide administration is not included.",
+    permissions: ["dashboard.view", "departments.read", "locations.read"],
   },
 } as const;
 

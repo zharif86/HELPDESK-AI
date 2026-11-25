@@ -1,0 +1,31 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: helpdesk
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-helpdesk}
+      POSTGRES_DB: helpdesk
+    volumes:
+      - helpdesk-pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U helpdesk -d helpdesk"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+  app:
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://helpdesk:${POSTGRES_PASSWORD:-helpdesk}@db:5432/helpdesk
+      HOSTNAME: 0.0.0.0
+      PORT: 3000
+    ports:
+      - "3000:3000"
+
+volumes:
+  helpdesk-pg:

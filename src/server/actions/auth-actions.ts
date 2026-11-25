@@ -6,7 +6,7 @@ import { setSessionCookie, clearSessionCookie, readSessionCookie } from "@/serve
 import { loginWithPassword, logoutCurrentSession } from "@/server/services/auth-service";
 import { getRequestMeta } from "@/server/http/request-meta";
 import { passwordsMatch, readString } from "@/server/forms";
-import { idleState, toActionState, type ActionState } from "@/server/actions/state";
+import { toActionState, type ActionState } from "@/server/actions/state";
 import { loginSchema } from "@/server/validators/auth";
 import { changePasswordSchema } from "@/server/validators/users";
 import { requireUser } from "@/server/auth/current-user";
@@ -62,5 +62,3 @@ export async function changePasswordAction(_state: ActionState, formData: FormDa
     return toActionState(error);
   }
 }
-
-export { idleState };

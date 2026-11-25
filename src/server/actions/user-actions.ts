@@ -42,10 +42,19 @@ export async function updateUserAction(userId: string, _state: ActionState, form
   }
 }
 
-export async function setUserStatusAction(userId: string, status: "ACTIVE" | "INACTIVE") {
-  const { actor } = await requirePagePermission("users.deactivate");
-  await setUserStatus(actor, userId, status);
-  redirect(`/admin/users/${userId}?notice=${status === "ACTIVE" ? "reactivated" : "deactivated"}`);
+export async function setUserStatusAction(
+  userId: string,
+  status: "ACTIVE" | "INACTIVE",
+  _state: ActionState,
+  _formData: FormData,
+): Promise<ActionState> {
+  try {
+    const { actor } = await requirePagePermission("users.deactivate");
+    await setUserStatus(actor, userId, status);
+    redirect(`/admin/users/${userId}?notice=${status === "ACTIVE" ? "reactivated" : "deactivated"}`);
+  } catch (error) {
+    return toActionState(error);
+  }
 }
 
 export async function resetPasswordAction(userId: string, _state: ActionState, formData: FormData): Promise<ActionState> {
