@@ -1,17 +1,21 @@
 export type NavIcon =
   | "dashboard"
+  | "tickets"
+  | "queue"
   | "users"
   | "departments"
   | "locations"
   | "roles"
   | "audit"
-  | "settings";
+  | "settings"
+  | "categories";
 
 export type NavItem = {
   href: string;
   label: string;
   icon: NavIcon;
-  permission: string;
+  permission?: string;
+  anyOf?: string[];
 };
 
 export type NavGroup = {
@@ -28,6 +32,41 @@ const GROUPS: NavGroup[] = [
         label: "Dashboard",
         icon: "dashboard",
         permission: "dashboard.view",
+      },
+    ],
+  },
+  {
+    label: "Helpdesk",
+    items: [
+      {
+        href: "/tickets",
+        label: "Tickets",
+        icon: "tickets",
+        anyOf: ["tickets.read", "tickets.read_own", "tickets.read_department"],
+      },
+      {
+        href: "/tickets/new",
+        label: "New ticket",
+        icon: "tickets",
+        permission: "tickets.create",
+      },
+      {
+        href: "/tickets/workspace",
+        label: "Technician workspace",
+        icon: "queue",
+        anyOf: ["tickets.assign", "tickets.read", "tickets.update"],
+      },
+      {
+        href: "/tickets/queue",
+        label: "Unassigned queue",
+        icon: "queue",
+        anyOf: ["tickets.assign", "tickets.read", "tickets.update"],
+      },
+      {
+        href: "/admin/ticket-categories",
+        label: "Ticket categories",
+        icon: "categories",
+        permission: "ticket_categories.manage",
       },
     ],
   },
@@ -79,9 +118,15 @@ const GROUPS: NavGroup[] = [
   },
 ];
 
+function canSee(item: NavItem, permissions: readonly string[]) {
+  if (item.anyOf?.length) return item.anyOf.some((key) => permissions.includes(key));
+  if (item.permission) return permissions.includes(item.permission);
+  return false;
+}
+
 export function navigationFor(permissions: readonly string[]): NavGroup[] {
   return GROUPS.map((group) => ({
     ...group,
-    items: group.items.filter((item) => permissions.includes(item.permission)),
+    items: group.items.filter((item) => canSee(item, permissions)),
   })).filter((group) => group.items.length > 0);
 }

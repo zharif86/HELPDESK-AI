@@ -1,5 +1,5 @@
 import type { Actor } from "../src/server/access/types";
-import { syncAccessCatalog, seedDefaultSettings } from "../src/server/access/sync";
+import { syncAccessCatalog, seedDefaultSettings, seedHelpdeskReferenceData } from "../src/server/access/sync";
 import { hashPassword } from "../src/server/auth/password";
 import { prisma } from "../src/server/db";
 
@@ -8,6 +8,14 @@ export const TEST_PASSWORD = "Phase1-Test-2026!";
 export async function resetDatabase() {
   await prisma.$executeRawUnsafe(`
     TRUNCATE TABLE
+      ticket_attachments,
+      ticket_activities,
+      ticket_comments,
+      ticket_assignments,
+      tickets,
+      ticket_priority_rules,
+      ticket_categories,
+      ticket_number_sequences,
       audit_logs,
       sessions,
       user_roles,
@@ -22,6 +30,7 @@ export async function resetDatabase() {
   `);
   await syncAccessCatalog();
   await seedDefaultSettings();
+  await seedHelpdeskReferenceData();
 }
 
 export async function createAccount(input: {

@@ -2,28 +2,22 @@
 
 ## Phase 1 — complete
 
-Delivered and covered by the current schema, screens, and tests:
+Accounts, organisation structure, RBAC, sessions, audit, settings, Vitest foundation, Docker Compose files.
 
-- Project foundation (Next.js, Prisma, PostgreSQL, Tailwind)
-- Sign-in, sessions, lockout, password change, password reset by an administrator
-- Role catalogue and server-side permission checks
-- User, department, location, role, audit, and settings administration
-- Department hierarchy with cycle prevention
-- Department-head visibility limited to that department tree
-- Audit records for administrative changes
-- Vitest suite against `helpdesk_test`
-- Docker Compose for a local PostgreSQL and the app
+## Phase 2 — complete
+
+Helpdesk core: tickets, categories, priority matrix, assignment, workflow, comments, internal notes, attachments, role-scoped dashboards, search/filter UI, automated tests, documentation.
+
+Plan reference: `PHASE2_IMPLEMENTATION_PLAN.md`. Completion report: `PHASE2_COMPLETION_REPORT.md`.
 
 ## Not started
 
-These sidebar entries are labels only. They have no pages, tables, or services:
+Sidebar labels only until a later phase:
 
 - AI IT Assistant
-- Helpdesk Tickets
 - Knowledge Base
 - IT Assets
-- Technicians
 - SLA
 - Reports
 
-Phase 2 has not been started. Do not treat the labels as a commitment that those modules exist.
+Phase 3 has not been started.

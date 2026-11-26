@@ -4,6 +4,7 @@ import { PERMISSIONS, ROLE_TEMPLATES } from "@/server/access/catalog";
 import { hashPassword, passwordIssues } from "@/server/auth/password";
 import { writeAudit } from "@/server/audit";
 import { prisma } from "@/server/db";
+import { seedTicketReferenceData } from "@/server/tickets/seed-reference-data";
 
 const BLOCKED_ADMIN_PASSWORDS = new Set(["change-this-password", "password", "admin123", "Admin123!"]);
 
@@ -58,6 +59,10 @@ export async function syncAccessCatalog() {
       });
     }
   }
+}
+
+export async function seedHelpdeskReferenceData() {
+  await seedTicketReferenceData();
 }
 
 export async function seedDefaultSettings() {

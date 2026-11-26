@@ -2,30 +2,22 @@
 
 ## Sign in
 
-Open the site and enter your email and password. A wrong password shows a generic message. Too many failures lock the account for the period set by an administrator. A disabled account can sign in only after an administrator activates it, and only the correct password reveals that the account is disabled.
+Open the site and enter your email and password. New or reset accounts must choose a new password before the home page opens.
 
-If an administrator reset your password, or your account is new, you must choose a new password before the home page opens. Use at least 12 characters with upper and lower case, a number, and a symbol. Do not reuse your email name or include spaces.
+## Tickets
 
-## Home
+Employees can open **New ticket**, describe the problem, choose category, impact, and urgency, and submit. Priority is calculated automatically. Use **Tickets** to follow your own cases, add public comments, upload screenshots (PNG, JPEG, WebP, PDF, or text, max 5 MB), and reopen a resolved or closed ticket with a reason when needed.
 
-The dashboard shows counts you are allowed to see: accounts, departments, locations, and recent activity, depending on your role.
+Department heads also see tickets raised from their department tree.
 
-## What each role can open
+IT technicians use **Technician workspace** and **Unassigned queue** for work in scope, update status, add comments or internal notes, and resolve tickets.
 
-| Role | Can open |
-| --- | --- |
-| Employee | Dashboard |
-| IT Manager | Dashboard, departments, locations (whole organisation, read only) |
-| IT Technician | Dashboard, departments, locations (whole organisation, read only) |
-| Department Head | Dashboard, their department tree, and locations in that tree |
-| System Administrator | All Phase 1 administration screens |
+IT managers and system administrators can view organisation tickets, assign technicians, override priority with a justification, and close or cancel according to the workflow.
 
-People can hold more than one role. The wider permission wins. A Department Head who is also an IT Manager sees the whole organisation.
+## Dashboard
+
+The home dashboard shows helpdesk totals for tickets you are allowed to see, plus organisation figures when your role permits.
 
 ## Not available yet
 
-AI IT Assistant, Helpdesk Tickets, Knowledge Base, IT Assets, Technicians, SLA, and Reports are shown as unavailable. You cannot open them.
-
-## Sign out
-
-Use **Sign out** in the shell. That revokes the session stored for this browser.
+AI IT Assistant, Knowledge Base, IT Assets, SLA, and Reports remain unavailable.

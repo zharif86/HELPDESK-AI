@@ -1,6 +1,6 @@
 # AI IT Helpdesk
 
-Phase 1 is the administration foundation for an internal IT helpdesk: accounts, departments, locations, roles, audit, and organisation settings. Sign-in uses database sessions. Tickets, knowledge, assets, and the assistant are not built yet.
+Phases 1 and 2 are implemented: administration foundation plus helpdesk tickets (create, assign, workflow, comments, attachments, and role-scoped dashboards). Sign-in uses database sessions. Knowledge, assets, SLA, and the AI assistant are not built yet.
 
 ## Run locally
 

@@ -1,7 +1,8 @@
 import "dotenv/config";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/client";
-import { ALL_PERMISSIONS, PERMISSIONS, ROLE_TEMPLATES } from "../src/server/access/catalog";
+import { ALL_PERMISSIONS } from "../src/server/access/catalog";
+import { syncAccessCatalog, seedHelpdeskReferenceData } from "../src/server/access/sync";
 import { hashPassword, passwordIssues } from "../src/server/auth/password";
 import { createDepartment } from "../src/server/services/department-service";
 import { createLocation } from "../src/server/services/location-service";
@@ -12,38 +13,6 @@ const connectionString = process.env.DATABASE_URL;
 if (!connectionString) throw new Error("DATABASE_URL is not set.");
 
 const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString }) });
-
-async function syncCatalog() {
-  for (const [key, permission] of Object.entries(PERMISSIONS)) {
-    await prisma.permission.upsert({
-      where: { key },
-      update: { description: permission.description, module: permission.module },
-      create: { key, description: permission.description, module: permission.module },
-    });
-  }
-  const permissions = await prisma.permission.findMany({
-    where: { key: { in: Object.keys(PERMISSIONS) } },
-    select: { id: true, key: true },
-  });
-  const idByKey = new Map(permissions.map((permission) => [permission.key, permission.id]));
-  for (const [key, template] of Object.entries(ROLE_TEMPLATES)) {
-    const existing = await prisma.role.findUnique({ where: { key } });
-    if (existing) continue;
-    await prisma.role.create({
-      data: {
-        key,
-        name: template.name,
-        description: template.description,
-        isSystem: true,
-        permissions: {
-          create: template.permissions.map((permissionKey) => ({
-            permissionId: idByKey.get(permissionKey)!,
-          })),
-        },
-      },
-    });
-  }
-}
 
 const DEVELOPMENT_PASSWORDS = new Set(["Helpdesk-Root-2026!", "Desk-User-2026!"]);
 
@@ -177,7 +146,8 @@ async function seedDemo(actor: Actor) {
 }
 
 async function main() {
-  await syncCatalog();
+  await syncAccessCatalog();
+  await seedHelpdeskReferenceData();
   const settings = [
     ["organisation.name", "AI IT Helpdesk", "Name shown on the sign-in page and navigation."],
     ["organisation.supportEmail", "ict-support@helpdesk.local", "Contact email shown to signed-in users."],

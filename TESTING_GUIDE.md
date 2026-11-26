@@ -1,14 +1,12 @@
 # Testing guide
 
-Tests use Vitest and the application services. They do not drive a browser.
+Tests use Vitest and application services against `helpdesk_test` only.
 
 ## Database
 
-`npm test` creates `helpdesk_test` on the local PostgreSQL instance if it is missing, applies migrations, then runs Vitest. `vitest.config.ts` points `DATABASE_URL` at `postgresql://helpdesk:helpdesk@127.0.0.1:5433/helpdesk_test`. `tests/setup.ts` stops the run if the URL does not end in `/helpdesk_test`.
+`npm test` creates `helpdesk_test` if missing, applies migrations, then runs Vitest. Setup refuses any `DATABASE_URL` that does not end with `/helpdesk_test`. Truncation includes Phase 2 ticket tables, then reloads the permission catalogue, settings, categories, and priority matrix.
 
-Each database-backed file truncates application tables and reloads the permission catalogue. Do not point the test script at the `helpdesk` database.
-
-Start PostgreSQL first (`npm run dev` or `npm run db:up`) so port 5433 is listening.
+Start PostgreSQL first (`npm run dev` or `npm run db:up`).
 
 ## Commands
 
@@ -19,14 +17,14 @@ npm run typecheck
 npx prisma validate
 ```
 
-## What is covered
+## Coverage
 
-`tests/auth.test.ts` — valid login, invalid login, lockout, expired session, revoked session, inactive account.
+Phase 1 suites: authentication, authorisation, administration, rules.
 
-`tests/authorization.test.ts` — System Administrator can list users; IT Manager cannot; IT Technician cannot create users; Employee cannot manage settings or departments; Department Head sees only their department and cannot list users.
+Phase 2 suites:
 
-`tests/administration.test.ts` — create and update a user (with audit), create a department and location, reject an unknown permission, refuse to deactivate the last administrator, reject a duplicate email, reject a department cycle, and block sign-in after deactivation.
+- `tests/phase2a-tickets.test.ts` — categories, priority matrix, unique numbers, invalid category, IDOR, transitions map
+- `tests/phase2c-workflow.test.ts` — assignment, invalid transitions, resolution/reopen reasons, internal notes, assign permission
+- `tests/phase2d-attachments.test.ts` — file type/size rejection, internal download protection, dashboard totals from real rows
 
-`tests/rules.test.ts` — cycle detection, password policy, redaction, and the fixed-window limiter. These do not need rows beyond the setup check.
-
-The latest local run is recorded in `PHASE1_COMPLETION_REPORT.md`. Re-run `npm test` after changes; do not copy an old pass into a new claim.
+Latest results are recorded in `PHASE2_COMPLETION_REPORT.md`. Re-run after changes; do not copy an old pass forward.

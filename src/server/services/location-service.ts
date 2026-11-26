@@ -114,7 +114,11 @@ export async function updateLocation(actor: Actor, id: string, input: LocationIn
 }
 
 export async function listLocationOptions(actor: Actor) {
-  if (!hasPermission(actor.permissions, "locations.read") && !hasPermission(actor.permissions, "users.read")) {
+  if (
+    !hasPermission(actor.permissions, "locations.read") &&
+    !hasPermission(actor.permissions, "users.read") &&
+    !hasPermission(actor.permissions, "tickets.create")
+  ) {
     assertPermission(actor, "locations.read");
   }
   const visible = await visibleDepartmentIds(actor);

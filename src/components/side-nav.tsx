@@ -5,12 +5,14 @@ import { usePathname } from "next/navigation";
 import {
   BookOpen,
   Building2,
+  Inbox,
   LayoutDashboard,
   MapPin,
   MonitorSmartphone,
   ScrollText,
   Settings,
   Shield,
+  Tags,
   Ticket,
   Users,
   Bot,
@@ -22,6 +24,9 @@ import { isActivePath } from "@/lib/paths";
 
 const ICONS: Record<NavIcon, typeof LayoutDashboard> = {
   dashboard: LayoutDashboard,
+  tickets: Ticket,
+  queue: Inbox,
+  categories: Tags,
   users: Users,
   departments: Building2,
   locations: MapPin,
@@ -32,10 +37,8 @@ const ICONS: Record<NavIcon, typeof LayoutDashboard> = {
 
 const FUTURE = [
   { label: "AI IT Assistant", icon: Bot },
-  { label: "Helpdesk Tickets", icon: Ticket },
   { label: "Knowledge Base", icon: BookOpen },
   { label: "IT Assets", icon: MonitorSmartphone },
-  { label: "Technicians", icon: Users },
   { label: "SLA", icon: Gauge },
   { label: "Reports", icon: BarChart3 },
 ];

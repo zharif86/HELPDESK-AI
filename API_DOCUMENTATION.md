@@ -1,42 +1,29 @@
 # Application actions
 
-Phase 1 does not expose a public HTTP API. Screens call Server Actions. Each action requires a live session and the permission named below. Validation errors and permission failures return to the form. Success redirects back to the record.
+Phase 2 still has no public REST API for business mutations. Screens call Server Actions. Attachment download is a GET route handler with session checks.
 
-## Sign-in
+## Sign-in and administration
 
-| Action | Who | Effect |
-| --- | --- | --- |
-| Sign in | Anonymous | Creates a session or returns a generic failure, lockout, or disabled-account message |
-| Change password | Signed-in user with `mustChangePassword` | Replaces the hash, clears the flag, revokes other sessions |
-| Sign out | Signed-in user | Revokes the current session and clears the cookie |
+Unchanged from Phase 1: sign-in, password change, sign-out, users, departments, locations, roles, settings, audit reads.
 
-## Users (`users.create`, `users.update`, `users.deactivate`, `users.read`)
+## Tickets
 
 | Action | Permission | Effect |
 | --- | --- | --- |
-| Create user | `users.create` | Inserts the account, hashes the password, assigns roles, writes audit |
-| Update user | `users.update` | Updates profile, department, location, and roles |
-| Set status | `users.deactivate` | Sets `ACTIVE` or `INACTIVE`. Blocks the last administrator and self-deactivation |
-| Reset password | `users.update` | Stores a temporary password, sets `mustChangePassword`, revokes that user's sessions |
+| Create ticket | `tickets.create` | Allocates number, calculates priority, writes activity + audit |
+| Assign / reassign | `tickets.assign` | Creates assignment history, may move status to `ASSIGNED` |
+| Change status | `tickets.change_status` or resolve/close/reopen/cancel | Validates transition; resolution/reason rules apply |
+| Override priority | `tickets.change_priority` | Requires justification; audited |
+| Public comment | `tickets.comment` | Visible to ticket participants |
+| Internal note | `tickets.internal_note` | Hidden from employees |
+| Upload attachment | `tickets.comment` (+ internal note for internal files) | Stores under `.data/attachments` |
 
-List, search, and filters are page reads under `users.read`. Account history is the last 50 audit rows for that user.
+## Categories
 
-## Departments (`departments.manage`, `departments.read`)
+| Action | Permission | Effect |
+| --- | --- | --- |
+| Create / update category | `ticket_categories.manage` | Parent/child, active flag, sort order |
 
-Create and update accept code, name, description, parent, head, and active flag. A parent that is the department itself or one of its descendants is rejected. List and detail honour department-head scope.
+## Downloads
 
-## Locations (`locations.manage`, `locations.read`)
-
-Create and update accept code, name, building, floor, room, department, and active flag. Scoped the same way as departments.
-
-## Roles (`roles.manage`, `roles.read`)
-
-Create and update accept name, description, and permission keys. Custom roles can be deleted when nobody holds them. System roles cannot be deleted. Privilege rules in `SECURITY.md` apply before the write.
-
-## Settings (`settings.manage`)
-
-Updates organisation name, support email, session hours, max failed logins, and lockout minutes.
-
-## Audit (`audit.read`)
-
-Read-only. Filters: text, action, and a UTC date range. There is no write action for audit rows.
+`GET /api/tickets/attachments/[id]` — requires a live session and ticket access. Internal attachments require `tickets.internal_note`.

@@ -1,6 +1,6 @@
 # Architecture
 
-This document describes the application as it exists at the end of Phase 1.
+This document describes the application as it exists at the end of Phase 2.
 
 ## Stack
 
@@ -16,13 +16,13 @@ The database URL is read from `prisma.config.ts`, not from the Prisma schema. `s
 
 ## Request path
 
-Browser forms post to Server Actions in `src/server/actions`. Each action loads the current session, checks a permission, calls a service, and redirects or returns an error state. Pages in `src/app/(app)` do the same permission check before reading data. There is no separate REST API in Phase 1.
+Browser forms post to Server Actions in `src/server/actions`. Each action loads the current session, checks a permission, calls a service, and redirects or returns an error state. Pages in `src/app/(app)` do the same permission check before reading data. Attachment downloads use an authenticated route handler under `/api/tickets/attachments/[id]`.
 
 ```
 Browser form
   -> Server Action (auth + permission)
-    -> Service (rules, Prisma, audit)
-      -> PostgreSQL
+    -> Service (rules, Prisma, audit, ticket activity)
+      -> PostgreSQL / private attachment storage
 ```
 
 Pages are dynamic. The root layout sets `dynamic = "force-dynamic"` so a production build does not try to prerender screens that need the database.
@@ -31,10 +31,12 @@ Pages are dynamic. The root layout sets `dynamic = "force-dynamic"` so a product
 
 | Path | Responsibility |
 | --- | --- |
-| `src/app/(app)` | Signed-in shell: dashboard and `/admin/*` |
+| `src/app/(app)` | Signed-in shell: dashboard, `/tickets/*`, `/admin/*` |
 | `src/app/login` | Sign-in and required password change |
-| `src/components` | Shell, navigation, and administration forms |
+| `src/components` | Shell, navigation, administration and ticket forms |
 | `src/server/services` | Business rules and database access |
+| `src/server/tickets` | Numbering, workflow map, ticket access helpers, seed data |
+| `src/server/storage` | Attachment storage abstraction (local private disk) |
 | `src/server/access` | Permission catalogue, guards, and department scope |
 | `src/server/auth` | Cookies, password hashing, current user |
 | `src/server/actions` | Mutations invoked by forms |
@@ -48,12 +50,31 @@ A successful sign-in stores a random session token in the `helpdesk_session` coo
 
 Permissions live in `src/server/access/catalog.ts` and are copied into the database by `syncAccessCatalog`. Services call `assertPermission` before they read or write. Navigation hides links the user cannot open, but hiding a link is not the control: the page and the action both check again.
 
-Department heads who do not also hold System Administrator, IT Manager, or IT Technician are limited to their department and its descendants. Those three roles see the whole organisation for the permissions they hold. IT Manager and IT Technician can read departments and locations. They cannot manage users, roles, audit, or settings.
+Ticket visibility is enforced in ticket services:
+
+1. `tickets.read` — organisation-wide
+2. `tickets.read_department` — requester department in the actor’s visible department tree
+3. `tickets.read_own` — requester is the actor
+4. Technicians without `tickets.read` may also see tickets assigned to them or unassigned queue items
+
+Internal notes and internal attachments require `tickets.internal_note`.
+
+Department heads who do not also hold System Administrator, IT Manager, or IT Technician are limited to their department and its descendants for organisation reads. Ticket department scope uses the same helper.
+
+## Tickets
+
+Ticket numbers use `ticket_number_sequences` with `INSERT … ON CONFLICT DO UPDATE … RETURNING` inside the create transaction (`INC-{year}-{6 digits}`). Status changes follow `TICKET_TRANSITIONS` in `src/server/tickets/workflow.ts`. Priority is calculated from `ticket_priority_rules` unless an authorised override is recorded with a reason.
+
+Ticket history is stored in `ticket_activities` (append-only in application code). Significant actions also write to `audit_logs`.
+
+## Attachments
+
+Files are stored under `.data/attachments` outside the public web tree. Storage is abstracted in `src/server/storage` so a later object-store driver can replace the local driver. Downloads are authorised per attachment. Allowed types: PNG, JPEG, WebP, PDF, plain text. Maximum size: 5 MB.
 
 ## Audit
 
-Services call `writeAudit` after a successful change. Metadata is passed through `redact` so passwords, hashes, tokens, and secrets are not stored. There is no update or delete function for audit rows. Ordinary users have no audit permission. The database itself does not have an immutability trigger; integrity is enforced in the application.
+Services call `writeAudit` after a successful change. Metadata is passed through `redact` so passwords, hashes, tokens, and secrets are not stored. There is no update or delete function for audit rows.
 
 ## What is not in this phase
 
-AI assistant, tickets, knowledge base, assets, technician assignment, SLA, and reports appear in the sidebar as labels only. They have no routes, tables, or services.
+AI assistant behaviour, knowledge base, assets registry, SLA engine, and reports remain unavailable. Nullable AI fields exist on tickets for later integration only.

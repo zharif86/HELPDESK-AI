@@ -45,6 +45,14 @@ export async function requirePagePermission(permission: PermissionKey) {
   return context;
 }
 
+export async function requireAnyPagePermission(permissions: readonly PermissionKey[]) {
+  const context = await requireUser();
+  if (!permissions.some((permission) => hasPermission(context.user.permissions, permission))) {
+    redirect("/forbidden");
+  }
+  return context;
+}
+
 export async function currentPathname() {
   return (await headers()).get("x-pathname") ?? "";
 }

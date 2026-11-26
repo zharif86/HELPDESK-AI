@@ -4,59 +4,50 @@ PostgreSQL database `helpdesk` in local development. Prisma schema: `prisma/sche
 
 - `20261125002623_phase1_foundation` — initial tables
 - `20261125090000_phase1_integrity` — assigning-user foreign key, its index, and Department Head read grants
+- `20261126040000_phase2_helpdesk_core` — tickets, categories, priority rules, sequences, assignments, comments, activities, attachments; optional `users.specialisation`
 
-Primary keys are CUID strings except composite keys on `role_permissions` and `user_roles`, and the string key on `system_settings`.
+Primary keys are CUID strings except composite keys on `role_permissions` and `user_roles`, the string key on `system_settings`, and integer year on `ticket_number_sequences`.
 
-## Tables
+## Phase 1 tables
 
-### users
+Unchanged in behaviour: `users`, `roles`, `permissions`, `role_permissions`, `user_roles`, `departments`, `locations`, `sessions`, `audit_logs`, `system_settings`. See earlier Phase 1 notes for constraints. Phase 2 added nullable `users.specialisation` only.
 
-Account record. `email` is unique. `staff_id` is unique when present. `status` is `ACTIVE` or `INACTIVE`. `deleted_at` is the soft-delete marker; administration lists exclude deleted rows. `password_hash` is bcrypt. Failed attempts and `locked_until` support lockout. `must_change_password` forces a password change before the shell is shown.
+## Phase 2 tables
 
-`department_id` and `location_id` use `ON DELETE SET NULL`. `created_by_id` and `updated_by_id` point at users with the same rule.
+### ticket_number_sequences
 
-### roles, permissions, role_permissions
+Primary key `year`. `last_value` increments atomically for `INC-{year}-{######}`.
 
-`roles.key` is unique (`SYSTEM_ADMIN`, `IT_MANAGER`, `TECHNICIAN`, `EMPLOYEE`, `DEPARTMENT_HEAD`, plus any custom role). `is_system` marks the five templates; those roles cannot be deleted. `permissions.key` is unique. `role_permissions` cascades when a role or permission row is removed.
+### ticket_categories
 
-### user_roles
+Unique `code`. Optional `parent_id` with `ON DELETE RESTRICT`. `is_active`, `sort_order`. Categories referenced by tickets are not deleted; deactivate instead.
 
-Composite primary key `(user_id, role_id)`. Deleting a user removes assignments. Deleting a role is restricted while assignments exist. `assigned_by_id` references `users` and becomes null if that administrator is removed (`ON DELETE SET NULL`). Index: `user_roles_assigned_by_id_idx`.
+### ticket_priority_rules
 
-### departments
+Unique `(impact, urgency)` → `priority`.
 
-`code` is unique. `parent_id` references departments with `ON DELETE RESTRICT`, so a parent cannot be removed while children exist. The service also rejects a parent that would create a cycle. `head_user_id` becomes null if that user is removed. `deleted_at` is reserved for soft delete; the administration screens activate and deactivate with `is_active`.
+### tickets
 
-### locations
+Unique `number`. Status, impact, urgency, priority enums. Requester required (`ON DELETE RESTRICT`). Department/location/incident location use `ON DELETE SET NULL`. Category/subcategory use `ON DELETE RESTRICT`. Assignee `ON DELETE SET NULL`. Snapshot fields store requester department/location names at creation. Nullable AI readiness fields and `asset_id` (no FK) are reserved for later modules. `source` is `USER`, `ADMIN`, or `AI`.
 
-`code` is unique. Optional `building`, `floor`, `room`, and `department_id` (`ON DELETE SET NULL`). `is_active` is the administration switch. `deleted_at` exists and is not used by the current screens.
+### ticket_assignments
 
-### sessions
+History of assignments. Cascade delete with ticket. Assignee restrict. Assigning officer set null if removed.
 
-`token_hash` is unique. The raw token is not stored. `expires_at` and `revoked_at` decide whether the cookie is accepted. Deleting a user cascades to sessions.
+### ticket_comments
 
-### audit_logs
+`PUBLIC` or `INTERNAL` visibility. Cascade with ticket. Author restrict.
 
-Append-only at the application layer. `actor_id` becomes null if the user is removed, so the row remains. Indexes cover actor, action, entity, and time. No application function updates or deletes these rows.
+### ticket_activities
 
-### system_settings
+Append-only timeline. Actor set null if removed. Cascade with ticket.
 
-One row per key. Values are JSON. Phase 1 keys:
+### ticket_attachments
 
-- `organisation.name`
-- `organisation.supportEmail`
-- `security.sessionHours` (1–12, default 8)
-- `security.maxFailedLogins` (3–10, default 5)
-- `security.lockoutMinutes` (5–120, default 15)
+Metadata only. `storage_key` unique. Files live on private disk. Internal flag hides employee downloads. Cascade with ticket.
 
-`updated_by_id` records the last editor.
+## Integrity choices
 
-## Integrity choices that were not changed
-
-Audit rows are not protected by a database trigger. A trigger would drift from Prisma's migration history without a matching model change. Application code is the control.
-
-Soft-delete columns exist on users, departments, and locations. User administration deactivates accounts (`status = INACTIVE`) rather than setting `deleted_at`. Department and location screens use `is_active`.
-
-## Not in the database
-
-There are no ticket, knowledge, asset, technician-roster, or SLA tables.
+- Phase 1 migrations are never rewritten.
+- Audit and ticket activity immutability are application-level.
+- No ticket, knowledge, asset, or SLA tables beyond the Phase 2 ticket module.

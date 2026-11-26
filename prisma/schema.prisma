@@ -1,5 +1,6 @@
-// Phase 1 schema: accounts, organisation, sessions, audit, and settings.
-// Ticket, knowledge, asset, and SLA tables are not in this schema.
+// Phase 1: accounts, organisation, sessions, audit, settings.
+// Phase 2: helpdesk tickets, categories, assignments, comments, activities, attachments.
+// Knowledge, assets, and SLA tables are not in this schema yet.
 
 generator client {
   provider = "prisma-client"
@@ -15,6 +16,50 @@ enum UserStatus {
   INACTIVE
 }
 
+enum TicketStatus {
+  NEW
+  OPEN
+  ASSIGNED
+  IN_PROGRESS
+  PENDING_USER
+  PENDING_VENDOR
+  ESCALATED
+  RESOLVED
+  CLOSED
+  REOPENED
+  CANCELLED
+}
+
+enum TicketImpact {
+  HIGH
+  MEDIUM
+  LOW
+}
+
+enum TicketUrgency {
+  HIGH
+  MEDIUM
+  LOW
+}
+
+enum TicketPriority {
+  CRITICAL
+  HIGH
+  MEDIUM
+  LOW
+}
+
+enum TicketCommentVisibility {
+  PUBLIC
+  INTERNAL
+}
+
+enum TicketSource {
+  USER
+  ADMIN
+  AI
+}
+
 model User {
   id                  String     @id @default(cuid())
   email               String     @unique
@@ -23,6 +68,7 @@ model User {
   staffId             String?    @unique @map("staff_id")
   phone               String?
   jobTitle            String?    @map("job_title")
+  specialisation      String?
   status              UserStatus @default(ACTIVE)
   departmentId        String?    @map("department_id")
   locationId          String?    @map("location_id")
@@ -37,18 +83,28 @@ model User {
   createdById         String?    @map("created_by_id")
   updatedById         String?    @map("updated_by_id")
 
-  department        Department?  @relation(fields: [departmentId], references: [id], onDelete: SetNull)
-  location          Location?    @relation(fields: [locationId], references: [id], onDelete: SetNull)
-  createdBy         User?        @relation("UserCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
-  createdUsers      User[]       @relation("UserCreatedBy")
-  updatedBy         User?        @relation("UserUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
-  updatedUsers      User[]       @relation("UserUpdatedBy")
-  headedDepartments Department[] @relation("DepartmentHead")
-  roles             UserRole[]
-  sessions          Session[]
-  auditLogs         AuditLog[]   @relation("AuditActor")
-  settingsUpdated   SystemSetting[]
-  assignedUserRoles UserRole[]   @relation("RoleAssignedBy")
+  department             Department?        @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  location               Location?          @relation(fields: [locationId], references: [id], onDelete: SetNull)
+  createdBy              User?              @relation("UserCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  createdUsers           User[]             @relation("UserCreatedBy")
+  updatedBy              User?              @relation("UserUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  updatedUsers           User[]             @relation("UserUpdatedBy")
+  headedDepartments      Department[]       @relation("DepartmentHead")
+  roles                  UserRole[]
+  sessions               Session[]
+  auditLogs              AuditLog[]         @relation("AuditActor")
+  settingsUpdated        SystemSetting[]
+  assignedUserRoles      UserRole[]         @relation("RoleAssignedBy")
+  requestedTickets       Ticket[]           @relation("TicketRequester")
+  assignedTickets        Ticket[]           @relation("TicketAssignee")
+  createdTickets         Ticket[]           @relation("TicketCreatedBy")
+  updatedTickets         Ticket[]           @relation("TicketUpdatedBy")
+  ticketAssignmentsMade  TicketAssignment[] @relation("TicketAssignedBy")
+  ticketAssignmentsHeld  TicketAssignment[] @relation("TicketAssigneeHistory")
+  ticketComments         TicketComment[]
+  ticketActivities       TicketActivity[]
+  ticketAttachments      TicketAttachment[]
+  categoriesUpdated      TicketCategory[]   @relation("CategoryUpdatedBy")
 
   @@index([departmentId])
   @@index([locationId])
@@ -131,6 +187,7 @@ model Department {
   head      User?        @relation("DepartmentHead", fields: [headUserId], references: [id], onDelete: SetNull)
   users     User[]
   locations Location[]
+  tickets   Ticket[]
 
   @@index([parentId])
   @@index([headUserId])
@@ -151,8 +208,10 @@ model Location {
   updatedAt    DateTime  @updatedAt @map("updated_at")
   deletedAt    DateTime? @map("deleted_at")
 
-  department Department? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
-  users      User[]
+  department      Department? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  users           User[]
+  tickets         Ticket[]    @relation("TicketRequesterLocation")
+  incidentTickets Ticket[]    @relation("TicketIncidentLocation")
 
   @@index([departmentId])
   @@index([isActive])
@@ -207,4 +266,199 @@ model SystemSetting {
   updatedBy User? @relation(fields: [updatedById], references: [id], onDelete: SetNull)
 
   @@map("system_settings")
+}
+
+model TicketNumberSequence {
+  year      Int @id
+  lastValue Int @default(0) @map("last_value")
+
+  @@map("ticket_number_sequences")
+}
+
+model TicketCategory {
+  id          String   @id @default(cuid())
+  code        String   @unique
+  name        String
+  description String?
+  parentId    String?  @map("parent_id")
+  isActive    Boolean  @default(true) @map("is_active")
+  sortOrder   Int      @default(0) @map("sort_order")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  updatedById String?  @map("updated_by_id")
+
+  parent    TicketCategory?  @relation("TicketCategoryTree", fields: [parentId], references: [id], onDelete: Restrict)
+  children  TicketCategory[] @relation("TicketCategoryTree")
+  updatedBy User?            @relation("CategoryUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  tickets   Ticket[]         @relation("TicketCategory")
+  subTickets Ticket[]        @relation("TicketSubcategory")
+
+  @@index([parentId])
+  @@index([isActive])
+  @@index([sortOrder])
+  @@map("ticket_categories")
+}
+
+model TicketPriorityRule {
+  id        String         @id @default(cuid())
+  impact    TicketImpact
+  urgency   TicketUrgency
+  priority  TicketPriority
+  createdAt DateTime       @default(now()) @map("created_at")
+  updatedAt DateTime       @updatedAt @map("updated_at")
+
+  @@unique([impact, urgency])
+  @@map("ticket_priority_rules")
+}
+
+model Ticket {
+  id                    String         @id @default(cuid())
+  number                String         @unique
+  title                 String
+  description           String
+  status                TicketStatus   @default(NEW)
+  impact                TicketImpact
+  urgency               TicketUrgency
+  priority              TicketPriority
+  priorityOverrideReason String?       @map("priority_override_reason")
+  source                TicketSource   @default(USER)
+  contactName           String?        @map("contact_name")
+  contactEmail          String?        @map("contact_email")
+  contactPhone          String?        @map("contact_phone")
+  affectedEquipment     String?        @map("affected_equipment")
+  assetTag              String?        @map("asset_tag")
+  /// Reserved for a future assets module. No foreign key in Phase 2.
+  assetId               String?        @map("asset_id")
+  requesterDepartmentName String?      @map("requester_department_name")
+  requesterLocationName   String?      @map("requester_location_name")
+  reportedAt            DateTime       @default(now()) @map("reported_at")
+  resolution            String?
+  resolvedAt            DateTime?      @map("resolved_at")
+  closedAt              DateTime?      @map("closed_at")
+  cancelledAt           DateTime?      @map("cancelled_at")
+  cancellationReason    String?        @map("cancellation_reason")
+  reopenReason          String?        @map("reopen_reason")
+  aiDiagnosticSummary   String?        @map("ai_diagnostic_summary")
+  aiSuggestedCategoryId String?        @map("ai_suggested_category_id")
+  aiSuggestedPriority   TicketPriority? @map("ai_suggested_priority")
+  aiConfidenceScore     Float?         @map("ai_confidence_score")
+  aiSessionRef          String?        @map("ai_session_ref")
+  requesterId           String         @map("requester_id")
+  departmentId          String?        @map("department_id")
+  locationId            String?        @map("location_id")
+  incidentLocationId    String?        @map("incident_location_id")
+  categoryId            String?        @map("category_id")
+  subcategoryId         String?        @map("subcategory_id")
+  assigneeId            String?        @map("assignee_id")
+  createdById           String?        @map("created_by_id")
+  updatedById           String?        @map("updated_by_id")
+  createdAt             DateTime       @default(now()) @map("created_at")
+  updatedAt             DateTime       @updatedAt @map("updated_at")
+
+  requester        User             @relation("TicketRequester", fields: [requesterId], references: [id], onDelete: Restrict)
+  department       Department?      @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  location         Location?        @relation("TicketRequesterLocation", fields: [locationId], references: [id], onDelete: SetNull)
+  incidentLocation Location?        @relation("TicketIncidentLocation", fields: [incidentLocationId], references: [id], onDelete: SetNull)
+  category         TicketCategory?  @relation("TicketCategory", fields: [categoryId], references: [id], onDelete: Restrict)
+  subcategory      TicketCategory?  @relation("TicketSubcategory", fields: [subcategoryId], references: [id], onDelete: Restrict)
+  assignee         User?            @relation("TicketAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  createdBy        User?            @relation("TicketCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy        User?            @relation("TicketUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  assignments      TicketAssignment[]
+  comments         TicketComment[]
+  activities       TicketActivity[]
+  attachments      TicketAttachment[]
+
+  @@index([status])
+  @@index([priority])
+  @@index([requesterId])
+  @@index([assigneeId])
+  @@index([departmentId])
+  @@index([categoryId])
+  @@index([subcategoryId])
+  @@index([reportedAt])
+  @@index([createdAt])
+  @@map("tickets")
+}
+
+model TicketAssignment {
+  id               String    @id @default(cuid())
+  ticketId         String    @map("ticket_id")
+  assigneeId       String    @map("assignee_id")
+  assignedById     String?   @map("assigned_by_id")
+  assignedAt       DateTime  @default(now()) @map("assigned_at")
+  unassignedAt     DateTime? @map("unassigned_at")
+  reassignmentReason String? @map("reassignment_reason")
+
+  ticket     Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  assignee   User   @relation("TicketAssigneeHistory", fields: [assigneeId], references: [id], onDelete: Restrict)
+  assignedBy User?  @relation("TicketAssignedBy", fields: [assignedById], references: [id], onDelete: SetNull)
+
+  @@index([ticketId])
+  @@index([assigneeId])
+  @@index([assignedAt])
+  @@map("ticket_assignments")
+}
+
+model TicketComment {
+  id         String                   @id @default(cuid())
+  ticketId   String                   @map("ticket_id")
+  authorId   String                   @map("author_id")
+  visibility TicketCommentVisibility
+  body       String
+  createdAt  DateTime                 @default(now()) @map("created_at")
+  updatedAt  DateTime                 @updatedAt @map("updated_at")
+
+  ticket      Ticket             @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  author      User               @relation(fields: [authorId], references: [id], onDelete: Restrict)
+  attachments TicketAttachment[]
+
+  @@index([ticketId])
+  @@index([authorId])
+  @@index([visibility])
+  @@index([createdAt])
+  @@map("ticket_comments")
+}
+
+model TicketActivity {
+  id           String   @id @default(cuid())
+  ticketId     String   @map("ticket_id")
+  actorId      String?  @map("actor_id")
+  action       String
+  summary      String
+  previousValue String? @map("previous_value")
+  newValue     String?  @map("new_value")
+  metadata     Json?
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  ticket Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  actor  User?  @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([ticketId])
+  @@index([actorId])
+  @@index([action])
+  @@index([createdAt])
+  @@map("ticket_activities")
+}
+
+model TicketAttachment {
+  id           String   @id @default(cuid())
+  ticketId     String   @map("ticket_id")
+  commentId    String?  @map("comment_id")
+  uploadedById String   @map("uploaded_by_id")
+  originalName String   @map("original_name")
+  storageKey   String   @unique @map("storage_key")
+  mimeType     String   @map("mime_type")
+  sizeBytes    Int      @map("size_bytes")
+  isInternal   Boolean  @default(false) @map("is_internal")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  ticket     Ticket         @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  comment    TicketComment? @relation(fields: [commentId], references: [id], onDelete: SetNull)
+  uploadedBy User           @relation(fields: [uploadedById], references: [id], onDelete: Restrict)
+
+  @@index([ticketId])
+  @@index([commentId])
+  @@index([uploadedById])
+  @@map("ticket_attachments")
 }

@@ -9,6 +9,11 @@ const NOTICES: Record<string, string> = {
   "role-updated": "Role permissions saved.",
   "role-deleted": "Role deleted.",
   "settings-saved": "Organisation settings saved.",
+  "ticket-created": "Ticket submitted.",
+  "ticket-updated": "Ticket updated.",
+  "ticket-assigned": "Technician assigned.",
+  "ticket-status": "Ticket status updated.",
+  "ticket-comment": "Comment added.",
 };
 
 export function noticeMessage(value: string | string[] | undefined) {
